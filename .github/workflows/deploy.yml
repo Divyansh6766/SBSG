@@ -66,6 +66,8 @@ env:
   ECS_CLUSTER: test1
   ECS_SERVICE: testecs-service-z9ns3rf3
   CONTAINER_NAME: testecs
+  IMAGE_TAG: latest
+  TASK_DEF_NAME: testecs
 
 jobs:
   deploy:
@@ -106,20 +108,36 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Render new ECS Task Definition
-        id: render-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: taskdef-base.json
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ env.image }}
+          - name: Get current Task Definition
+          id: task-def
+          run: |
+            aws ecs describe-task-definition \
+              --task-definition ${{ env.TASK_DEF_NAME }} \
+              --query 'taskDefinition' > taskdef.json
+  
+      - name: Replace image in Task Definition
+        id: updated-task-def
+        run: |
+          IMAGE_URI=${{ env.IMAGE_URI }}
+            jq --arg IMAGE "$IMAGE_URI" \
+              --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
+              '(.containerDefinitions[] | select(.name == $CONTAINER) | .image) = $IMAGE' taskdef.json > new-taskdef.json
+          echo "UPDATED_TASK_DEF=new-taskdef.json" >> $GITHUB_ENV
 
-      - name: Deploy to ECS
+      - name: Register new Task Definition revision
+        id: register-task-def
+        run: |
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-taskdef.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Deploy updated Task Definition to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          task-definition: ${{ env.TASK_DEF_ARN }}
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
           force-new-deployment: true
-
