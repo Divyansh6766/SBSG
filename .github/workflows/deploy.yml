@@ -126,6 +126,7 @@ jobs:
       - name: Register new Task Definition revision
         id: register-task-def
         run: |
+          echo "Registering new task definition..."
           TASK_DEF_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://new-taskdef.json \
             --query 'taskDefinition.taskDefinitionArn' \
@@ -135,7 +136,7 @@ jobs:
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.register-task-def.outputs.task_def_arn }}
+          task-definition: "${{ env.task_def_arn }}"
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
