@@ -99,47 +99,19 @@ jobs:
           docker push $IMAGE_URI
           echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 
-      - name: Get current Task Definition and sanitize
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ env.TASK_DEF_NAME }} \
-            --query 'taskDefinition' > raw-taskdef.json
-
-          jq 'del(
-            .taskDefinitionArn,
-            .revision,
-            .status,
-            .requiresAttributes,
-            .compatibilities,
-            .registeredAt,
-            .registeredBy
-          )' raw-taskdef.json > taskdef.json
-
-      - name: Replace image in task definition
-        run: |
-          IMAGE_URI="${{ steps.build-image.outputs.image_uri }}"
-          echo "Using IMAGE_URI: $IMAGE_URI"
-          jq --arg IMAGE "$IMAGE_URI" --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
-            '(.containerDefinitions[] | select(.name == $CONTAINER) | .image) |= $IMAGE' \
-            taskdef.json > new-taskdef.json
-
-      - name: Register new Task Definition revision
-        id: register-task-def
-        run: |
-          echo "Registering new task definition..."
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file://new-taskdef.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
-          echo "✔ Registered: $TASK_DEF_ARN"
-
+      - name: Render new ECS task definition
+        id: render-task
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: taskdef.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image_uri }}
+  
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: "${{ env.task_def_arn }}"
+          task-definition: ${{ steps.render-task.outputs.task-definition }}
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
           force-new-deployment: true
-

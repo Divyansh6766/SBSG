@@ -1,0 +1,16 @@
+{
+    "family": "testecs",
+    "networkMode": "awsvpc",
+    "containerDefinitions": [
+      {
+        "name": "testecs",
+        "image": "PLACEHOLDER_IMAGE_URI",
+        "portMappings": [{ "containerPort": 80, "protocol": "tcp" }],
+        "essential": true
+      }
+    ],
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512"
+  }
+  
