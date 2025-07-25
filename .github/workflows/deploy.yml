@@ -112,7 +112,7 @@ jobs:
         with:
           task-definition: taskdef-base.json
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ env.IMAGE_URI }}
+          image: ${{ env.image }}
 
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
