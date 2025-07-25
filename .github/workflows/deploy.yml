@@ -131,7 +131,8 @@ jobs:
             --cli-input-json file://new-taskdef.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
-          echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+          echo "✔ Registered: $TASK_DEF_ARN"
 
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
