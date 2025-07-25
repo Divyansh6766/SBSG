@@ -58,8 +58,7 @@ name: Build and Deploy to ECS
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 env:
   AWS_REGION: us-east-1
@@ -72,7 +71,6 @@ env:
 
 jobs:
   deploy:
-    name: Build and Deploy to Amazon ECS
     runs-on: ubuntu-latest
 
     steps:
@@ -90,7 +88,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push Docker image to ECR
+      - name: Build and push Docker image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -102,9 +100,7 @@ jobs:
 
       - name: Get current Task Definition and sanitize
         run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ env.TASK_DEF_NAME }} \
-            --query 'taskDefinition' > raw-taskdef.json
+          aws ecs describe-task-definition --task-definition ${{ env.TASK_DEF_NAME }} --query 'taskDefinition' > raw-taskdef.json
 
           jq 'del(
             .taskDefinitionArn,
@@ -116,12 +112,12 @@ jobs:
             .registeredBy
           )' raw-taskdef.json > taskdef.json
 
-      - name: Replace image in Task Definition
+      - name: Replace image in task definition
         run: |
-          jq --arg IMAGE "${{ env.IMAGE_URI }}" \
-             --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
-             '(.containerDefinitions[] | select(.name == $CONTAINER) | .image) |= $IMAGE' \
-             taskdef.json > new-taskdef.json
+          IMAGE_URI=$(cat $GITHUB_ENV | grep IMAGE_URI | cut -d '=' -f2)
+          jq --arg IMAGE "$IMAGE_URI" --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
+            '(.containerDefinitions[] | select(.name == $CONTAINER) | .image) |= $IMAGE' \
+            taskdef.json > new-taskdef.json
 
       - name: Register new Task Definition revision
         id: register-task-def
@@ -132,7 +128,7 @@ jobs:
             --output text)
           echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
 
-      - name: Deploy updated Task Definition to ECS
+      - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.register-task-def.outputs.task_def_arn }}
