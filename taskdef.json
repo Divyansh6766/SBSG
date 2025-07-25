@@ -1,5 +1,6 @@
 {
     "family": "testecs",
+    "executionRoleArn": "arn:aws:iam::861276116905:role/ecsTaskExecutionRole",
     "networkMode": "awsvpc",
     "containerDefinitions": [
       {
