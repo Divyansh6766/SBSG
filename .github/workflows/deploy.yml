@@ -88,19 +88,22 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image to ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           IMAGE_URI=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "Building and pushing image: $IMAGE_URI"
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 
       - name: Get current Task Definition and sanitize
         run: |
-          aws ecs describe-task-definition --task-definition ${{ env.TASK_DEF_NAME }} --query 'taskDefinition' > raw-taskdef.json
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.TASK_DEF_NAME }} \
+            --query 'taskDefinition' > raw-taskdef.json
 
           jq 'del(
             .taskDefinitionArn,
@@ -114,7 +117,8 @@ jobs:
 
       - name: Replace image in task definition
         run: |
-          IMAGE_URI=$(cat $GITHUB_ENV | grep IMAGE_URI | cut -d '=' -f2)
+          IMAGE_URI="${{ steps.build-image.outputs.image_uri }}"
+          echo "Using IMAGE_URI: $IMAGE_URI"
           jq --arg IMAGE "$IMAGE_URI" --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
             '(.containerDefinitions[] | select(.name == $CONTAINER) | .image) |= $IMAGE' \
             taskdef.json > new-taskdef.json
@@ -136,3 +140,4 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
           force-new-deployment: true
+
