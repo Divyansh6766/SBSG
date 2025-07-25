@@ -1,3 +1,6 @@
+# Use Nginx base image
+FROM nginx:alpine
+
 # Remove default static assets
 RUN rm -rf /usr/share/nginx/html/*
 
