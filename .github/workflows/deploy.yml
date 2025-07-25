@@ -108,12 +108,12 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-          - name: Get current Task Definition
-          id: task-def
-          run: |
-            aws ecs describe-task-definition \
-              --task-definition ${{ env.TASK_DEF_NAME }} \
-              --query 'taskDefinition' > taskdef.json
+      - name: Get current Task Definition
+        id: task-def
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.TASK_DEF_NAME }} \
+            --query 'taskDefinition' > taskdef.json
   
       - name: Replace image in Task Definition
         id: updated-task-def
